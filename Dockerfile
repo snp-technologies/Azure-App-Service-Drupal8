@@ -116,7 +116,7 @@ RUN drush init -y
 ### END Drush install ###
 
 WORKDIR /var/www/html
-RUN git clone -b master https://$GIT_TOKEN@github.com/snp-technologies/zackcooper.git .
+RUN git clone -b $BRANCH https://$GIT_TOKEN@github.com/$GIT_REPO.git .
 
 # Add directories for public and private files
 RUN mkdir -p  /home/site/wwwroot/sites/default/files \
