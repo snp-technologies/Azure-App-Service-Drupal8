@@ -75,7 +75,17 @@ RUN apt-get update; \
         libssl-dev \
 	;
 
+# set php.ini file
+RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
+
 # set recommended PHP.ini settings
+# Include PHP recommendations from https://www.drupal.org/docs/7/system-requirements/php
+RUN { \
+  echo 'error_log=/var/log/apache2/php-error.log'; \
+  echo 'log_errors=On'; \
+  echo 'display_errors=Off'; \
+  } > /usr/local/etc/php/php.ini
+
 # see https://secure.php.net/manual/en/opcache.installation.php
 RUN { \
 		echo 'opcache.memory_consumption=128'; \
