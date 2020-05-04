@@ -125,15 +125,6 @@ RUN mv drush.phar /usr/local/bin/drush
 RUN drush init -y
 ### END Drush install ###
 
-WORKDIR /var/www/html
-RUN git clone -b $BRANCH https://$GIT_TOKEN@github.com/$GIT_REPO.git .
-
-# Add directories for public and private files
-RUN mkdir -p  /home/site/wwwroot/sites/default/files \
-    && mkdir -p  /home/site/wwwroot/sites/default/files/private \
-    && ln -s /home/site/wwwroot/sites/default/files  /var/www/html/docroot/sites/default/files \
-    && ln -s /home/site/wwwroot/sites/default/files/private /var/www/html/docroot/sites/default/files/private
-
 # =========
 # App Service configurations
 # Source https://github.com/Azure/app-service-builtin-images/blob/master/php/7.2.1-apache/Dockerfile
@@ -149,5 +140,23 @@ ENV PORT 8080
 ENV WEBSITE_ROLE_INSTANCE_ID localRoleInstance
 ENV WEBSITE_INSTANCE_ID localInstance
 ENV PATH ${PATH}:/home/site/wwwroot
+
+
+WORKDIR /var/www/html
+RUN git clone -b $BRANCH https://$GIT_TOKEN@github.com/$GIT_REPO.git .
+
+# Add directories for public and private files
+RUN mkdir -p  /home/site/wwwroot/sites/default/files \
+    && mkdir -p  /home/site/wwwroot/sites/default/files/private \
+    && ln -s /home/site/wwwroot/sites/default/files  /var/www/html/docroot/sites/default/files \
+    && ln -s /home/site/wwwroot/sites/default/files/private /var/www/html/docroot/sites/default/files/private
+
+### Webroot permissions per www.drupal.org/node/244924#linux-servers ###
+WORKDIR /var/www/html/docroot
+RUN chown -R root:www-data .
+RUN find . -type d -exec chmod u=rwx,g=rx,o= '{}' \;
+RUN find . -type f -exec chmod u=rw,g=r,o= '{}' \;
+# For sites/default/files directory, permissions come from
+# /home/site/wwwroot/sites/default/files
 
 ENTRYPOINT ["/bin/init_container.sh"]
