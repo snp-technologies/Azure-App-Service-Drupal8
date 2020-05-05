@@ -68,6 +68,7 @@ RUN apt-get update; \
         git \
         mysql-client \
         nano \
+        rsyslog \
         sudo \
         tcptraceroute \
         vim \
@@ -84,7 +85,7 @@ RUN { \
   echo 'error_log=/var/log/apache2/php-error.log'; \
   echo 'log_errors=On'; \
   echo 'display_errors=Off'; \
-  } > /usr/local/etc/php/php.ini
+  } >> /usr/local/etc/php/php.ini
 
 # see https://secure.php.net/manual/en/opcache.installation.php
 RUN { \
@@ -94,6 +95,9 @@ RUN { \
 		echo 'opcache.revalidate_freq=60'; \
 		echo 'opcache.fast_shutdown=1'; \
 	} > /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+# see https://www.drupal.org/docs/8/core/modules/syslog/overview#s-2-configure-syslog-to-log-to-a-separate-file-optional
+RUN echo "local0.* /var/log/apache2/drupal.log" >> /etc/rsyslog.conf
 
 ### Change apache logs directory for App Service support ###
 RUN   \
@@ -109,9 +113,7 @@ RUN   \
    && rm -rf /var/www/html \
    && rm -rf /var/log/apache2 \
    && mkdir -p /home/LogFiles \
-   && ln -s /home/site/wwwroot /var/www/html \
-   && ln -s /home/LogFiles /var/log/apache2 
-
+   && ln -s /home/LogFiles /var/log/apache2
 # Install memcached support for php
 RUN apt-get update && apt-get install -y libmemcached-dev zlib1g-dev \
     && pecl install memcached-3.1.3 \
@@ -139,7 +141,7 @@ ENV PHP_VERSION 7.3
 ENV PORT 8080
 ENV WEBSITE_ROLE_INSTANCE_ID localRoleInstance
 ENV WEBSITE_INSTANCE_ID localInstance
-ENV PATH ${PATH}:/home/site/wwwroot
+ENV PATH ${PATH}:/var/www/html
 
 
 WORKDIR /var/www/html
