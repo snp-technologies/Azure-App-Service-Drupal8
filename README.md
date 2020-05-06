@@ -3,6 +3,7 @@ A Docker solution for Drupal 8 on Azure Web App for Containers.
 
 - [Azure-App-Service-Drupal8](#azure-app-service-drupal8)
   - [Overview](#overview)
+    - [Some history](#some-history)
   - [Bring your own code](#bring-your-own-code)
   - [Bring your own database](#bring-your-own-database)
     - [Connection string tip](#connection-string-tip)
@@ -27,6 +28,15 @@ This repository is an example solution for Drupal 8. By itself, this solution do
 
 This repository is intended to satisfy common Drupal 8 use cases. We expect that users of this solution will customize it to varying degrees to match their application requirements. For instance, we include many PHP extensions commonly required by Drupal 8, but you may need to add one or more (or remove ones that you do not need).
 
+### Some history
+
+When originally committed as a public repository on GitHub, the solution was very different...The base image was nginx; php 7.0 was installed in the container upon build; Composer was included. The original deployment has been archived as branch `nginx-php7.0`.
+
+While considering an upgrade to php 7.3, we decided to take a different approach, more consistent with our [Drupal 7 on App Service](https://github.com/snp-technologies/Azure-App-Service-Drupal7) solution and the official [Docker Hub image for Drupal](https://hub.docker.com/_/drupal/). You'll find in this latest version:
+- Base image is `php:7.3-apache-stretch`
+- Rsyslog support
+- ARM Template for your Web App for Containers resources that you can include in release pipeline. 
+
 <a id="byo-code"></a>
 ## Bring your own code
 
@@ -39,6 +49,8 @@ Note the use of build args for `$BRANCH`, `$GIT_TOKEN`, and `$GIT_REPO`.
 Alternatively, you can use the Docker COPY command to copy code from your local disk into the image.
 
 Our recommendation is to place your code in a directory directly off the root of the repository. In this repository we provide a `/docroot` directory into which you can place your application code. In the Dockerfile, it is assumed that the application code is in the `/docroot` directory. Feel free, of course, to rename the directory with your preferred naming convention.
+
+> :warning: If you use a different directory as your document root, remember to change the `DocumentRoot` value in `apache2.conf`.
 
 <a id="byo-database"></a>
 ## Bring your own database
@@ -77,7 +89,11 @@ $databases = array (
 <a id="files"></a>
 ## Persistent Files
 
-In order to persist files, we leverage the Web App's `/home` directory that is mounted to Azure File Storage (see NOTE below). The `/home` directory is accessible from the container. As such, we persist files by making directories for `/files` and `/files/private` and then setting symbolic links, as follows:
+> :warning: Web App for Containers mounts an SMB share to the `/home` directory. This is provided by setting the `WEBSITES_ENABLE_APP_SERVICE_STORAGE` app value  to `true`.
+> 
+> If the `WEBSITES_ENABLE_APP_SERVICE_STORAGE` setting is `false`, the `/home` directory will not be shared across scale instances, and files that are written there will not be persisted across restarts.
+> 
+To persist files, we leverage the Web App's `/home` directory that is mounted to Azure File Storage. The `/home` directory is accessible from the container. As such, we persist files by making directories for `/files` and `/files/private` and then setting symbolic links in our Dockerfile, as follows:
 ```
 # Add directories for public and private files
 RUN mkdir -p  /home/site/wwwroot/sites/default/files \
@@ -85,18 +101,34 @@ RUN mkdir -p  /home/site/wwwroot/sites/default/files \
     && ln -s /home/site/wwwroot/sites/default/files  /var/www/html/docroot/sites/default/files \
     && ln -s /home/site/wwwroot/sites/default/files/private  /var/www/html/docroot/sites/default/files/private
 ```
-NOTE: By default, the Web App for Containers platform mounts an SMB share to the `/home` directory. You can do that by setting the `WEBSITES_ENABLE_APP_SERVICE_STORAGE` app setting to true or by removing the app setting entirely.
+Similarly we persist log files such as `php-error.log` and `drupal.log`
+```
+...
+&& mkdir -p /home/LogFiles \
+&& ln -s /home/LogFiles /var/log/apache2
+```   
+Drupal settings you can persist to the `/home` directory by adding settings to your `settings.php` file:
+```
+* Location of the site configuration files.
 
-If the `WEBSITES_ENABLE_APP_SERVICE_STORAGE` setting is `false`, the `/home` directory will not be shared across scale instances, and files that are written there will not be persisted across restarts.
+settings['config_sync_directory'] = '/home';
+
+/**
+* Salt for one-time login links, cancel links, form tokens, etc. 
+*
+* Include your salt value in a salt.txt file and reference it with:
+*/
+$settings['hash_salt'] = file_get_contents('/home/salt.txt');
+```
 
 <a id="references"></a>
 ## References
 
-* [Docker Hub Official Repository for php](https://hub.docker.com/r/_/php/)
 * [Web App for Containers home page](https://azure.microsoft.com/en-us/services/app-service/containers/)
 * [Use a custom Docker image for Web App for Containers](https://docs.microsoft.com/en-us/azure/app-service/containers/tutorial-custom-docker-image)
 * [Understanding the Azure App Service file system](https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system)
 * [Azure App Service on Linux FAQ](https://docs.microsoft.com/en-us/azure/app-service/containers/app-service-linux-faq)
+* * [Docker Hub Official Repository for php](https://hub.docker.com/r/_/php/)
 
 Git repository sponsored by [SNP Technologies](https://www.snp.com)
 
