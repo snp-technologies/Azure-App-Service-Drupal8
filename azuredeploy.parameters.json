@@ -1,0 +1,48 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "subscriptionId": {
+            "value": "<provide value>"
+        },
+        "name": {
+            "value": "<provide value>"
+        },
+        "location": {
+            "value": "<provide value>"
+        },
+        "hostingEnvironment": {
+            "value": "<provide value>"
+        },
+        "hostingPlanName": {
+            "value": "<provide value>"
+        },
+        "serverFarmResourceGroup": {
+            "value": "<provide value>"
+        },
+        "alwaysOn": {
+            "value": true
+        },
+        "linuxFxVersion": {
+            "value": "DOCKER|<your registry name>.azurecr.io/drupal8demo:150"
+        },
+        "dockerRegistryUrl": {
+            "value": "https://<your registry name>.azurecr.io"
+        },
+        "dockerRegistryUsername": {
+            "value": "<your registry name>"
+        },
+        "dockerRegistryPassword": {
+            "value": null
+        },
+        "dockerRegistryStartupCommand": {
+            "value": ""
+        },
+        "resourceTags": {
+            "value": {
+              "Environment": "<provide value>",
+              "Team": "<provide value>"
+            }
+          }
+    }
+}

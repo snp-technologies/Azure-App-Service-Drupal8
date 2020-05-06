@@ -1,90 +1,124 @@
-FROM nginx
-MAINTAINER Azure App Service Container Images <appsvc-images@microsoft.com>
+# Source: https://github.com/docker-library/drupal/blob/189686e109917d7bffaf28024be7d6d28495f57d/8.8/apache/Dockerfile
+# Guidance: https://www.drupal.org/docs/8/system-requirements/drupal-8-php-requirements
+FROM php:7.3-apache-stretch
 
 ARG GIT_TOKEN
+ARG BRANCH
+ARG GIT_REPO
 
-# ========
-# ENV vars
-# ========
+COPY apache2.conf /bin/
+COPY init_container.sh /bin/
 
-# ssh
-ENV SSH_PASSWD "root:Docker!"
-#nginx
-ENV NGINX_LOG_DIR "/home/LogFiles/nginx"
-#php
-ENV PHP_HOME "/etc/php/7.0"
-ENV PHP_CONF_DIR $PHP_HOME"/cli"
-ENV PHP_CONF_FILE $PHP_CONF_DIR"/php.ini"
-#Web Site Home
-ENV HOME_SITE "/var/www/html/docroot"
+###  Configure root user credentials ###
+RUN chmod 755 /bin/init_container.sh \
+    && echo "root:Docker!" | chpasswd \
+    && echo "cd /home" >> /etc/bash.bashrc
 
-#
-ENV DOCKER_BUILD_HOME "/dockerbuild"
+# install the PHP extensions we need
+RUN set -eux; \
+	\
+	if command -v a2enmod; then \
+		a2enmod rewrite; \
+	fi; \
+	\
+	savedAptMark="$(apt-mark showmanual)"; \
+	\
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		libfreetype6-dev \
+		libjpeg-dev \
+		libpng-dev \
+		libpq-dev \
+		libzip-dev \
+	; \
+	\
+	docker-php-ext-configure gd \
+		--with-freetype-dir=/usr \
+		--with-jpeg-dir=/usr \
+		--with-png-dir=/usr \
+	; \
+	\
+	docker-php-ext-install -j "$(nproc)" \
+		gd \
+		opcache \
+		pdo_mysql \
+		pdo_pgsql \
+		zip \
+	; \
+	\
+# reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
+	apt-mark auto '.*' > /dev/null; \
+	apt-mark manual $savedAptMark; \
+	ldd "$(php -r 'echo ini_get("extension_dir");')"/*.so \
+		| awk '/=>/ { print $3 }' \
+		| sort -u \
+		| xargs -r dpkg-query -S \
+		| cut -d: -f1 \
+		| sort -u \
+		| xargs -rt apt-mark manual; \
+	\
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+	rm -rf /var/lib/apt/lists/*
 
-# ====================
-# Download and Install
-# ~. essentials
-# 1. php7.0-common/php7.0-fpm/php-pear/php7.0-apcu
-# 2. ssh
-# 3. drush
-# 4. composer
-# ====================
-COPY * /tmp/
-
-    # -------------
-    # ~. essentials
-    # -------------
-
-RUN set -ex \
-        && essentials=" \
-        ca-certificates \
+# Additional libraries not in base recommendations
+RUN apt-get update; \
+	apt-get install -y --no-install-recommends \
+        openssh-server \
+        curl \
+        git \
+        mysql-client \
+        nano \
+        rsyslog \
+        sudo \
+        tcptraceroute \
+        vim \
         wget \
-        " \
-        && apt-get update \
-        && apt-get install -y -V --no-install-recommends $essentials \
-        && rm -r /var/lib/apt/lists/* \
-        # ------------------
-        # 1. php7.0-common/php7.0-fpm/php-pear/php7.0-apcu
-        # ------------------
-        && phps=" \
-        php7.0-common \
-        php7.0-fpm \
-        php-pear \
-        php7.0-apcu \
-        php7.0-gd \
-        php7.0-dba \
-        php7.0-mysql \
-        php7.0-xml \
-        " \
-        && apt-get update \
-        && apt-get install -y -V --no-install-recommends $phps \
-        && rm -r /var/lib/apt/lists/* \
-        # ------
-        # 2. ssh
-        # ------
-        && apt-get update \
-        && apt-get install -y --no-install-recommends openssh-server \
-        && echo "$SSH_PASSWD" | chpasswd
-    
-RUN apt-get install curl -y
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin
-RUN ln -s /usr/local/bin/composer.phar /usr/local/bin/composer
-RUN sed -i '84i export PATH="$HOME/.composer/vendor/bin:$PATH"' ~/.bashrc
-        # ------
-        # 
-        # ------
-        # 4. composer
-        # ------
-RUN apt-get install git  wget -y
+        libssl-dev \
+	;
 
-###PHP dependencies for Composer###
-RUN apt-get install curl -y
-RUN apt-get autoremove -y
-RUN apt-get install wget curl git -y
-RUN apt-get update -y
-RUN apt-get install php7.0-mbstring
-RUN apt-get install php7.0-curl
-RUN apt-get install php7.0-zip -y
+# set php.ini file
+RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
+
+# set recommended PHP.ini settings
+# Include PHP recommendations from https://www.drupal.org/docs/7/system-requirements/php
+RUN { \
+  echo 'error_log=/var/log/apache2/php-error.log'; \
+  echo 'log_errors=On'; \
+  echo 'display_errors=Off'; \
+  } >> /usr/local/etc/php/php.ini
+
+# see https://secure.php.net/manual/en/opcache.installation.php
+RUN { \
+		echo 'opcache.memory_consumption=128'; \
+		echo 'opcache.interned_strings_buffer=8'; \
+		echo 'opcache.max_accelerated_files=4000'; \
+		echo 'opcache.revalidate_freq=60'; \
+		echo 'opcache.fast_shutdown=1'; \
+	} > /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+# see https://www.drupal.org/docs/8/core/modules/syslog/overview#s-2-configure-syslog-to-log-to-a-separate-file-optional
+RUN echo "local0.* /var/log/apache2/drupal.log" >> /etc/rsyslog.conf
+
+### Change apache logs directory for App Service support ###
+RUN   \
+   rm -f /var/log/apache2/* \
+   && rmdir /var/lock/apache2 \
+   && rmdir /var/run/apache2 \
+   && rmdir /var/log/apache2 \
+   && chmod 777 /var/log \
+   && chmod 777 /var/run \
+   && chmod 777 /var/lock \
+   && chmod 777 /bin/init_container.sh \
+   && cp /bin/apache2.conf /etc/apache2/apache2.conf \
+   && rm -rf /var/www/html \
+   && rm -rf /var/log/apache2 \
+   && mkdir -p /home/LogFiles \
+   && ln -s /home/LogFiles /var/log/apache2
+# Install memcached support for php
+RUN apt-get update && apt-get install -y libmemcached-dev zlib1g-dev \
+    && pecl install memcached-3.1.3 \
+    && docker-php-ext-enable memcached
+RUN apt-get update && apt-get install -y memcached
 
 ### Begin Drush install ###
 RUN wget https://github.com/drush-ops/drush/releases/download/8.1.13/drush.phar
@@ -93,13 +127,25 @@ RUN mv drush.phar /usr/local/bin/drush
 RUN drush init -y
 ### END Drush install ###
 
-WORKDIR /var/www/html
-RUN git clone -b master https://$GIT_TOKEN@github.com/snp-technologies/zackcooper.git .
+# =========
+# App Service configurations
+# Source https://github.com/Azure/app-service-builtin-images/blob/master/php/7.2.1-apache/Dockerfile
+# =========
 
-RUN php --ini
-WORKDIR /var/www/html/docroot
-RUN composer install
-RUN composer global require drush/drush
+COPY sshd_config /etc/ssh/
+
+EXPOSE 2222 80
+
+ENV APACHE_RUN_USER www-data
+ENV PHP_VERSION 7.3
+ENV PORT 8080
+ENV WEBSITE_ROLE_INSTANCE_ID localRoleInstance
+ENV WEBSITE_INSTANCE_ID localInstance
+ENV PATH ${PATH}:/var/www/html
+
+
+WORKDIR /var/www/html
+RUN git clone -b $BRANCH https://$GIT_TOKEN@github.com/$GIT_REPO.git .
 
 # Add directories for public and private files
 RUN mkdir -p  /home/site/wwwroot/sites/default/files \
@@ -107,24 +153,12 @@ RUN mkdir -p  /home/site/wwwroot/sites/default/files \
     && ln -s /home/site/wwwroot/sites/default/files  /var/www/html/docroot/sites/default/files \
     && ln -s /home/site/wwwroot/sites/default/files/private /var/www/html/docroot/sites/default/files/private
 
-# =========
-# Configure
-# =========
+### Webroot permissions per www.drupal.org/node/244924#linux-servers ###
+WORKDIR /var/www/html/docroot
+RUN chown -R root:www-data .
+RUN find . -type d -exec chmod u=rwx,g=rx,o= '{}' \;
+RUN find . -type f -exec chmod u=rw,g=r,o= '{}' \;
+# For sites/default/files directory, permissions come from
+# /home/site/wwwroot/sites/default/files
 
-RUN set -ex\
-        && rm -rf /var/log/nginx \
-        && ln -s $NGINX_LOG_DIR /var/log/nginx
-
-COPY sshd_config /etc/ssh/
-
-# php
-COPY php.ini /etc/php/7.0/cli/php.ini
-COPY www.conf /etc/php/7.0/fpm/pool.d/www.conf
-# nginx
-COPY nginx.conf /etc/nginx/nginx.conf
-
-COPY init_container.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/init_container.sh
-RUN chmod 777 /var/www/html/docroot/sites/default/settings.php
-EXPOSE 2222 80
-ENTRYPOINT ["init_container.sh"]
+ENTRYPOINT ["/bin/init_container.sh"]
