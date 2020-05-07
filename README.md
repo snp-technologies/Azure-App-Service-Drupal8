@@ -30,12 +30,12 @@ This repository is intended to satisfy common Drupal 8 use cases. We expect that
 
 ### Some history
 
-When originally committed as a public repository on GitHub, the solution was very different...The base image was nginx; php 7.0 was installed in the container upon build; Composer was included. The original deployment has been archived as branch `nginx-php7.0`.
+When originally committed as a public repository on GitHub, the solution was very different - the base image was nginx; php 7.0 was installed in the container upon build; and Composer was included. The original deployment has been archived as branch `nginx-php7.0`.
 
 While considering an upgrade to php 7.3, we decided to take a different approach, more consistent with our [Drupal 7 on App Service](https://github.com/snp-technologies/Azure-App-Service-Drupal7) solution and the official [Docker Hub image for Drupal](https://hub.docker.com/_/drupal/). You'll find in this latest version:
 - Base image is `php:7.3-apache-stretch`
 - Rsyslog support
-- ARM Template for your Web App for Containers resources that you can include in release pipeline. 
+- ARM Template for your Web App for Containers resources that you can include in a release pipeline.
 
 <a id="byo-code"></a>
 ## Bring your own code
@@ -59,13 +59,13 @@ MySQL (or other Drupal compatible database) is not included in the Dockerfile. Y
 
 ### Connection string tip
 
-The Azure Web App provides a setting into which you can enter a database connection string. This string is an environment variable within the Web App. At run-time, this environment variable can be interpreted in your `settings.php` file and parsed to populate your $databases array. However, in a container SSH session, the environment variable is not available. As a result Drush commands that require a database bootstrap level do not work.
+Azure Web App provides a setting into which you can enter a database connection string. This string is an environment variable within the Web App. At run-time, this environment variable can be interpreted in your `settings.php` file and parsed to populate your $databases array. **However**, in a container SSH session, the environment variable is not available. As a result Drush commands do not work if they require a database bootstrap level.
 
-An alternative to the Web App Connection string environment variable is to reference in `settings.php` a secrets file mounted to the Web App /home directory. For example, assume that we have a `secrets.txt` file that contains the string:
+An alternative to the Web App, connection string environment variable is to reference in `settings.php` a secrets file mounted to the Web App `/home` directory. For example, assume that we have a `secrets.txt` file that contains the string:
 ```
 db=[mydb]&dbuser=[mydbuser]@[myazurewebappname]&dbpw=[mydbpassword]&dbhost=[mydb]
 ```
-In our settings.php file, we can use the following code to populate the $databases array:
+In our `settings.php` file, we can use the following code to populate the `$databases` array:
 ```
 $secret = file_get_contents('/home/secrets.txt');
 $secret = trim($secret);
@@ -107,7 +107,7 @@ Similarly we persist log files such as `php-error.log` and `drupal.log`
 && mkdir -p /home/LogFiles \
 && ln -s /home/LogFiles /var/log/apache2
 ```   
-Drupal settings you can persist to the `/home` directory by adding settings to your `settings.php` file:
+You can also use the `/home` mount for `settings.php` configurations that use files outside the repo. For example:
 ```
 * Location of the site configuration files.
 
@@ -128,7 +128,8 @@ $settings['hash_salt'] = file_get_contents('/home/salt.txt');
 * [Use a custom Docker image for Web App for Containers](https://docs.microsoft.com/en-us/azure/app-service/containers/tutorial-custom-docker-image)
 * [Understanding the Azure App Service file system](https://github.com/projectkudu/kudu/wiki/Understanding-the-Azure-App-Service-file-system)
 * [Azure App Service on Linux FAQ](https://docs.microsoft.com/en-us/azure/app-service/containers/app-service-linux-faq)
-* * [Docker Hub Official Repository for php](https://hub.docker.com/r/_/php/)
+* [Things You Should Know: Web Apps and Linux](https://docs.microsoft.com/en-us/archive/blogs/waws/things-you-should-know-web-apps-and-linux)
+* [Docker Hub Official Repository for php](https://hub.docker.com/r/_/php/)
 
 Git repository sponsored by [SNP Technologies](https://www.snp.com)
 
