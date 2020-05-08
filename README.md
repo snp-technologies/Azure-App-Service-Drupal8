@@ -139,14 +139,45 @@ $settings['hash_salt'] = file_get_contents('/home/salt.txt');
 1. Check your php-error.log. Perhaps there is a glaring problem.
 
 2. Verify that your website code is in the `/var/www/html/docroot` directory. Start an SSH session via Kudu, change to your `/var/www/html/docroot` directory, list directory contents. It should resemble this:
+
 ```
-root@356db9bf9fdf:/home# cd /var/www/html/docroot/                                                                                                          root@356db9bf9fdf:/var/www/html/docroot# ls                                                                                                                 INSTALL.txt   composer.json      index.php   sites       web.config                                                                                         LICENSE.txt   composer.lock      modules     themes                                                                                                         README.txt    core               profiles    update.php                                                                                                     autoload.php  example.gitignore  robots.txt  vendor
+root@356db9bf9fdf:/home# cd /var/www/html/docroot/
+root@356db9bf9fdf:/var/www/html/docroot#ls
+INSTALL.txt   composer.json      index.php   sites   web.config LICENSE.txt   composer.lock   modules themes README.txt    core   profiles    update.php  autoload.php  example.gitignore  robots.txt  vendor
 ```
-3. While in the `/var/www/html/docroot` directory, check your site status with drush.  It should resemble this:
+
+3. While in the `/var/www/html/docroot` directory, check your site status with drush. It should resemble this:
+
 ```
 root@356db9bf9fdf:/var/www/html/docroot# drush status
-Drupal version                  :  8.8.5                                                                                                                    Site URI                        :  http://default                                                                                                           Database driver                 :  mysql                                                                                                                    Database hostname               :  mydatabase.mysql.database.azure.com                                                                                      Database port                   :  3306                                                                                                                     Database username               :  user@mydatabase                                                                                                       Database name                   :  mydbname                                                                                                              Database                        :  Connected                                                                                                                Drupal bootstrap                :  Successful                                                                                                               Drupal user                     :                                                                                                                           Default theme                   :  umami                                                                                                                    Administration theme            :  seven                                                                                                                    PHP configuration               :  /usr/local/etc/php/php.ini                                                                                               PHP OS                          :  Linux                                                                                                                    Drush script                    :  /usr/local/bin/drush                                                                                                     Drush version                   :  8.1.13                                                                                                                   Drush temp directory            :  /tmp                                                                                                                     Drush configuration             :                                                                                                                           Drush alias files               :                                                                                                                           Install profile                 :  demo_umami                                                                                                               Drupal root                     :  /var/www/html/docroot                                                                                                    Drupal Settings File            :  sites/default/settings.php                                                                                               Site path                       :  sites/default                                                                                                            File directory path             :  sites/default/files                                                                                                      Temporary file directory path   :  /tmp                                                                                                                     Sync config path                :  /home
+Drupal version                  :  8.8.5
+Site URI                        :  http://default
+Database driver                 :  mysql
+Database hostname               :  mydatabase.mysql.database.azure.com
+Database port                   :  3306
+Database username               :  user@mydatabase
+Database name                   :  mydbname
+Database                        :  Connected
+Drupal bootstrap                :  Successful
+Drupal user                     :
+Default theme                   :  umami
+Administration theme            :  seven
+PHP configuration               :  /usr/local/etc/php/php.ini
+PHP OS                          :  Linux
+Drush script                    :  /usr/local/bin/drush
+Drush version                   :  8.1.13
+Drush temp directory            :  /tmp
+Drush configuration             :
+Drush alias files               :
+Install profile                 :  demo_umami
+Drupal root                     :  /var/www/html/docroot
+Drupal Settings File            :  sites/default/settings.php
+Site path                       :  sites/default
+File directory path             :  sites/default/files
+Temporary file directory path   :  /tmp
+Sync config path                :  /home
 ```
+
 4. While in the `/var/www/html/docroot` directory, rebuild your cache with `drush cache-rebuild` or `drush cr`.
 
 ### I can't connect to my database!
@@ -186,7 +217,15 @@ foreach ($dbh->query($sql) as $row) {
 ```
 Run file from the command line. Your output should resemble:
 ```
-root@356db9bf9fdf:/home# php php-pdo-test.php                                                                                                               3       2dad0fee-2d31-4acf-951f-acb816a0e673                                                                                                                5       6d60461c-81f8-4583-9bbd-47d130e8abac                                                                                                                1       7b07bdc7-fe74-4a99-bc7a-e9aae49fc46e                                                                                                                0       7d730abc-a986-4a72-9a3e-62eb8805e68f                                                                                                                7       956730d4-23d8-4c2e-a755-daa9146433d4                                                                                                                4       aad4b8a9-6a7d-4063-b0ec-ff3e3a1237ee                                                                                                                2       ab1ddaaf-2472-4634-b390-8904dd16ab73                                                                                                                6       fe18b850-7149-435e-b6cf-3b6166b8ff86
+root@356db9bf9fdf:/home# php php-pdo-test.php
+3       2dad0fee-2d31-4acf-951f-acb816a0e673
+5       6d60461c-81f8-4583-9bbd-47d130e8abac
+1       7b07bdc7-fe74-4a99-bc7a-e9aae49fc46e
+0       7d730abc-a986-4a72-9a3e-62eb8805e68f
+7       956730d4-23d8-4c2e-a755-daa9146433d4
+4       aad4b8a9-6a7d-4063-b0ec-ff3e3a1237ee
+2       ab1ddaaf-2472-4634-b390-8904dd16ab73
+6       fe18b850-7149-435e-b6cf-3b6166b8ff86
 ```
 
 <a id="references"></a>
