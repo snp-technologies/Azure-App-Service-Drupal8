@@ -8,6 +8,10 @@ A Docker solution for Drupal 8 on Azure Web App for Containers.
   - [Bring your own database](#bring-your-own-database)
     - [Connection string tip](#connection-string-tip)
   - [Persistent Files](#persistent-files)
+  - [Troubleshooting Tips](#troubleshooting-tips)
+    - [My theme is not loading!](#my-theme-is-not-loading)
+    - [When I visit my site, I get a WSOD!](#when-i-visit-my-site-i-get-a-wsod)
+    - [I can't connect to my database!](#i-cant-connect-to-my-database)
   - [References](#references)
 
 
@@ -119,6 +123,109 @@ settings['config_sync_directory'] = '/home';
 * Include your salt value in a salt.txt file and reference it with:
 */
 $settings['hash_salt'] = file_get_contents('/home/salt.txt');
+```
+
+<a id="troubleshooting"></a>
+## Troubleshooting Tips
+
+### My theme is not loading!
+
+1. Log in as an administrator and clear all caches. You can do this from the `/admin/config/development/performance` page, or via the drush command `drush cr` in an SSH session via Kudu. Clear your browser cache and reload  your home page. If the theme still does not load, try visiting the site from a different browser.
+   
+2. If these steps fail to solve the problem, proceed with the tips below.
+
+### When I visit my site, I get a WSOD!
+
+1. Check your php-error.log. Perhaps there is a glaring problem.
+
+2. Verify that your website code is in the `/var/www/html/docroot` directory. Start an SSH session via Kudu, change to your `/var/www/html/docroot` directory, list directory contents. It should resemble this:
+
+```
+root@356db9bf9fdf:/home# cd /var/www/html/docroot/
+root@356db9bf9fdf:/var/www/html/docroot#ls
+INSTALL.txt   composer.json      index.php   sites   web.config LICENSE.txt   composer.lock   modules themes README.txt    core   profiles    update.php  autoload.php  example.gitignore  robots.txt  vendor
+```
+
+3. While in the `/var/www/html/docroot` directory, check your site status with drush. It should resemble this:
+
+```
+root@356db9bf9fdf:/var/www/html/docroot# drush status
+Drupal version                  :  8.8.5
+Site URI                        :  http://default
+Database driver                 :  mysql
+Database hostname               :  mydatabase.mysql.database.azure.com
+Database port                   :  3306
+Database username               :  user@mydatabase
+Database name                   :  mydbname
+Database                        :  Connected
+Drupal bootstrap                :  Successful
+Drupal user                     :
+Default theme                   :  umami
+Administration theme            :  seven
+PHP configuration               :  /usr/local/etc/php/php.ini
+PHP OS                          :  Linux
+Drush script                    :  /usr/local/bin/drush
+Drush version                   :  8.1.13
+Drush temp directory            :  /tmp
+Drush configuration             :
+Drush alias files               :
+Install profile                 :  demo_umami
+Drupal root                     :  /var/www/html/docroot
+Drupal Settings File            :  sites/default/settings.php
+Site path                       :  sites/default
+File directory path             :  sites/default/files
+Temporary file directory path   :  /tmp
+Sync config path                :  /home
+```
+
+4. While in the `/var/www/html/docroot` directory, rebuild your cache with `drush cache-rebuild` or `drush cr`.
+
+### I can't connect to my database!
+
+1. If you are using an Azure Database for MySQL resource, ensure that you have a Firewall rule configured in the resource's Connection Security settings.
+
+2. Validate that you can connect to the database from container. Start an SSH session via Kudu and from the `/home` directory (or any directory for that matter) upload a simple php file to check your connection string. Here is an example of a file named `php-pdo-test.php` uploaded to the `/home` directory.
+
+```
+<?php
+
+$secret = file_get_contents('/home/secrets.txt');
+$secret = trim($secret);
+
+$dbconnstring = parse_str($secret,$output);
+
+$database = $output['db'];
+$username = $output['dbuser'];
+$password = $output['dbpw'];
+$dbhost = $output['dbhost'];
+
+$dsn = 'mysql:dbname=' . $database .';host=' . $dbhost;
+
+try {
+    $dbh = new PDO($dsn, $username, $password);
+} catch (PDOException $e) {
+    echo 'Connection failed: ' . $e->getMessage();
+}
+
+$sql = 'SELECT u.`uid`, u.`uuid` FROM `users` AS u';
+foreach ($dbh->query($sql) as $row) {
+    echo $row['uid'] . "\t";
+    echo $row['uuid'] . "\n";
+}
+
+?>
+```
+Run file from the command line. Your output should resemble:
+```
+root@356db9bf9fdf:/home# php php-pdo-test.php
+3       2dad0fee-2d31-4acf-951f-acb816a0e673
+5       6d60461c-81f8-4583-9bbd-47d130e8abac
+1       7b07bdc7-fe74-4a99-bc7a-e9aae49fc46e
+0       7d730abc-a986-4a72-9a3e-62eb8805e68f
+7       956730d4-23d8-4c2e-a755-daa9146433d4
+4       aad4b8a9-6a7d-4063-b0ec-ff3e3a1237ee
+2       ab1ddaaf-2472-4634-b390-8904dd16ab73
+6       fe18b850-7149-435e-b6cf-3b6166b8ff86
 ```
 
 <a id="references"></a>
